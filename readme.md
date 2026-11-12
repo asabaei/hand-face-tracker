@@ -30,12 +30,14 @@ The live test below used a model trained on an earlier, smaller snapshot of the 
 
 ![Habit alerts from the classifier run](images/dashboard.png)
 
+These results are for the default settings in `config.py`.
+
 **What this shows**
 
 - The classifier flags far fewer harmless actions than a distance rule can. Offline, false flags on harmless contact and idle drop from 61% to 9%, and precision rises from 44% to 87%, with recall about the same (92% vs. 91%).
 - In the live test, the rule-based tracker caught every real touch but also alerted on 11 to 13 of the 20 everyday actions. With the classifier, false alarms dropped to 1.
 - Inside the classifier run, the contact detector produced 26 events. The classifier let 13 of the 14 that were real touches through and held back 11 of the 12 that were not.
-- The classifier run missed 8 of 21 real touches, but only 1 of those was the classifier's decision. The other 7 never reached it: 3 were rejected by the hand-size check and 4 had only brief, flickering contact. All 7 came in the first half of the run, which points to the auto-calibrated hand-size baseline starting off wrong in that run (the per-touch diagnosis is in `diagnosis.csv`).
+- The classifier run missed 8 of 21 real touches, but only 1 of those was the classifier's decision. The other 7 never reached it: 3 were rejected by the hand-size check and 4 had only brief, flickering contact. All 7 fell between the 4th and 13th marked touch, and detection was steady after that, which points to the auto-calibrated hand-size baseline starting off wrong in that run (the per-touch diagnosis is in `diagnosis.csv`).
 - Calibration alone helped little. Offline, hover false flags only fell from 88.5% to 70.8%, and live, false alarms only fell from 13 to 11. A sip or a chin rest really is a touch, so only the classifier can tell it apart from a habit.
 
 **Read these numbers with care.** One person recorded all clips and the live test, in the same room with the same camera (the test was on a different day than the training clips). Hovering has only 7 clips. The live test has 21 touches, so its percentages have wide error bars. Each marked touch in the live test lasted 3 seconds. Frame rate was 19 to 22 fps. The evaluation allows 2 seconds of slack around each marked touch, and each alert can match only one marked touch. Two earlier pilot rounds, with touches marked by hand, are not reported: their pacing differed between runs, which is why the scripted routine was built.
@@ -56,7 +58,7 @@ webcam -> MediaPipe Hands + Face Mesh -> touch detection -> filtering -> alerts 
 
 ## Setup
 
-Python 3.9 to 3.11 (MediaPipe 0.10.14 doesn't install on newer versions).
+Tested with Python 3.11. MediaPipe 0.10.14 isn't available for the newest Python versions, so use a separate environment.
 
 ```
 conda create -n tracker python=3.11 -y
@@ -67,13 +69,13 @@ python tracker.py
 
 On macOS, allow camera access for your terminal app the first time.
 
-## Fastest path (no classifier)
+## Quick test without the classifier
 
-The classifier is optional. To get results you can put on a resume in about 20 minutes:
+The classifier is optional. To try the rule-based tracker and measure it with the scripted routine:
 
-1. Run `python tracker.py --no-autocal --data data_nocal`. Press `G`, do a real touch, press `G` again, and repeat about 20 times. Then hover a hand near your face and adjust your glasses, without marking those. Press `Q` to quit.
-2. Run `python tracker.py --data data_auto` and do the same set of touches.
-3. Run `python compare.py data_nocal data_auto` to print a table you can paste into the README.
+1. Run `python tracker.py --no-autocal --routine --data data_nocal`, press `SPACE`, and follow the prompts. Press `Q` when it says the routine is finished.
+2. Run `python tracker.py --routine --data data_auto`. Touch your face until the bottom message changes, then press `SPACE` and follow the prompts.
+3. Run `python compare.py data_nocal data_auto` to compare the two runs.
 
 ## Controls
 
@@ -91,9 +93,10 @@ The classifier is optional. To get results you can put on a resume in about 20 m
 
 ## Files it creates (in `data/`)
 
-- `events.csv`: every detected touch (start time, region, duration)
+- `events.csv`: every detected touch (start time, region, behavior, whether it alerted, duration)
 - `sessions.csv`: one row per run (length, touches, total contact time, longest touch, top region)
-- `labels.csv`: touches you marked with `G`
+- `labels.csv`: touches you marked with `G` (or that the routine marked)
+- `diagnosis.csv`: what happened to each marked touch
 - `dashboard.png`: charts from `python dashboard.py`
 
 Training clips go in `dataset/` and the trained model is saved as `model.joblib`. Both are in `.gitignore`, since they are derived from your own face.
@@ -128,8 +131,8 @@ The rule-based detector can't tell a habit from harmless contact. Resting your c
 1. Every frame is turned into 57 numbers: hand position relative to the face, distances from the fingertips to the eyes, nose, and mouth, hand size, openness, pinch, and orientation.
 2. A sliding window of 30 frames (about 1 second) is summarized with mean, std, min, and max of each number, plus motion features (fingertip speed, how often the hand changes direction, how long it stays near each region). That gives 236 features per window.
 3. A random forest predicts one of five classes: hovering, harmless / idle, nail biting, skin picking, eye rubbing.
-4. In the tracker, the classifier re-checks the last second every 5 frames (about a quarter second at 20 fps), and an alert fires only after it calls the contact a habit twice in a row. Harmless contact is still logged, but it never alerts.
-5. A simple rule sits on top of the model: nail biting needs fingers at the mouth, so when the hand is touching the cheek, chin, eyes, or forehead, the model's nail-biting score is set to zero. One camera can't see whether fingers are inside the mouth, and without this rule a hand resting on the chin was sometimes called nail biting. Turn it off with `--no-mouth-rule`.
+4. In the tracker, the classifier re-checks the last second every 10 frames (about half a second at 20 fps), and an alert fires only after it calls the contact a habit twice in a row. Setting `CLASSIFY_EVERY = 5` in `config.py` makes alerts a little faster, but that setting was not part of the live test. Harmless contact is still logged, but it never alerts.
+5. An optional rule can sit on top of the model: nail biting needs fingers at the mouth, so when the hand has touched the face in the last second but never at the mouth, the model's nail-biting score is set to zero. One camera can't see whether fingers are inside the mouth, and without this rule a hand resting on the chin was sometimes called nail biting. It is off by default because the live test was run without it. Turn it on with `NAIL_BITING_NEEDS_MOUTH = True` in `config.py`. `train.py` reports its effect offline as "classifier + mouth rule".
 
 **Collecting data**
 
@@ -156,7 +159,7 @@ Aim for at least 10 clips per behavior. Vary the hand you use, your distance fro
 python train.py
 ```
 
-This cross-validates by clip (windows from the same clip never appear in both train and test), prints accuracy, per-class precision and recall, and a habit-vs-not comparison of three methods: the rule-based detector with no calibration, the rule-based detector with calibration, and the classifier. The last columns show how often idle, hovering, and harmless contact were wrongly flagged as a habit. It saves `confusion_matrix.png` and `model.joblib`. Behaviors with fewer than 2 clips are skipped, so you can start training before you have recorded all six. Idle and harmless contact are merged into one "harmless / idle" class by default, because the difference between them never matters for alerts and the two are easy to confuse (`MERGE_IDLE_INTO_HARMLESS` in `config.py`). Windows from habit clips where the hand never comes near the face are dropped, since they are really idle (`CLEAN_WINDOWS`).
+This cross-validates by clip (windows from the same clip never appear in both train and test), prints accuracy, per-class precision and recall, and a habit-vs-not comparison of four methods: the rule-based detector with no calibration, the rule-based detector with calibration, the classifier, and the classifier with the mouth rule. The last columns show how often hovering and harmless / idle windows were wrongly flagged as a habit. It also prints nail-biting recall with and without the mouth rule. It saves `confusion_matrix.png` and `model.joblib`. Behaviors with fewer than 2 clips are skipped, so you can start training before you have recorded all six. Idle and harmless contact are merged into one "harmless / idle" class by default, because the difference between them never matters for alerts and the two are easy to confuse (`MERGE_IDLE_INTO_HARMLESS` in `config.py`). Windows from habit clips where the hand never comes near the face are dropped, since they are really idle (`CLEAN_WINDOWS`).
 
 **Using it**
 
@@ -201,7 +204,7 @@ Corrections and `collect.py` clips go in the same folder and are used together, 
 - With the classifier on, alerts arrive about a second after contact starts, since it needs a window of movement. 
 - The live test is small (21 marked touches, about 20 unmarked actions per run), so its percentages are rough.
 - Corrections only capture moments you noticed, so the model sees few idle or hovering examples. Mix in clips from `collect.py` for those.
-- Auto-calibration can start from a wrong baseline. In the live classifier run, 7 real touches were rejected before the classifier saw them, all in the first half of the run. Locking the baseline after a confirmed calibration is the next fix.
+- Auto-calibration can start from a wrong baseline. In the live classifier run, 7 real touches were rejected before the classifier saw them, all between the 4th and 13th touch. Locking the baseline after a confirmed calibration is the next fix.
 - Auto-calibration needs a couple of seconds of real face contact before it kicks in. Until then a looser size limit is used, so early hovers can be flagged. If the first thing you do is hover, the baseline can start off wrong, so touch your face first or press `C`.
 
 ## Project structure
