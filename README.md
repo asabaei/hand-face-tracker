@@ -4,6 +4,9 @@ A real-time webcam tool that detects when your hands touch your face (nail bitin
 
 <!-- add a demo GIF here: ![demo](demo.gif) -->
 
+https://github.com/user-attachments/assets/770dea38-4744-450c-b0ca-078759e49e7f
+
+
 ## Results
 
 **Offline (5-fold cross-validation, grouped by clip).** 297 recorded clips, 1,624 one-second windows: 177 harmless/idle, 69 skin picking, 26 eye rubbing, 18 nail biting, 7 hovering. Habit vs. not-habit:
