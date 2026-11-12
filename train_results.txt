@@ -1,0 +1,43 @@
+Skipping (need at least 2 clips): none
+clips: {'benign': 177, 'eye_rubbing': 26, 'hover': 7, 'nail_biting': 18, 'skin_picking': 69}
+windows: 1624  features per window: 236
+dropped 5 windows where the hand never came near the face (from clips labeled as habits)
+
+---- cross-validation (5 folds, split by clip) ----
+accuracy:  88.0%
+macro F1:  86.1%
+
+              precision    recall  f1-score   support
+
+       hover       0.85      0.82      0.83       130
+      benign       0.92      0.89      0.90       913
+ nail_biting       0.91      0.79      0.84       110
+skin_picking       0.82      0.87      0.84       329
+ eye_rubbing       0.82      0.95      0.88       142
+
+    accuracy                           0.88      1624
+   macro avg       0.86      0.86      0.86      1624
+weighted avg       0.88      0.88      0.88      1624
+
+---- habit vs not habit (percent) ----
+last columns = how often each non-habit behavior was wrongly flagged as a habit
+
+method               precision   recall   F1     Hovering (no touch)   Harmless / idle   
+rule-based           44.3        91.9     59.8   88.5                  60.9              
+rule + calibration   43.8        85.0     57.8   70.8                  59.3              
+classifier           86.8        91.4     89.0   0.0                   8.9               
+
+saved confusion_matrix.png
+saved model.joblib
+
+top features:
+  spread_mean  0.034
+  mouth_min_dist_min  0.031
+  eyes_mean_dist_min  0.028
+  dwell_eyes  0.028
+  mouth_mean_dist_min  0.024
+  eyes_min_dist_min  0.022
+  spread_max  0.02
+  pinch_max  0.019
+  openness_max  0.019
+  pinch_mean  0.018
