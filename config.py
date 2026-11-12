@@ -85,11 +85,11 @@ COUNTDOWN_SECONDS = 3         # collect.py: time to get your hand in position
 RECORD_SECONDS = 15           # collect.py: length of each clip
 WINDOW_FRAMES = 30            # frames the classifier looks at (about 1 sec)
 WINDOW_STRIDE = 10            # train.py: step between training windows
-CLASSIFY_EVERY = 5            # tracker.py: re-check the last window every this many frames
+CLASSIFY_EVERY = 10            # tracker.py: re-check the last window every this many frames
 TRIM_FRAMES = 15              # frames cut from the start/end of each clip when training
 CLASSIFIER_THRESHOLD = 0.6    # habit probability needed to count as a habit
 CLASSIFIER_CONFIRM = 2        # this many windows in a row before alerting
-NAIL_BITING_NEEDS_MOUTH = True  # only allow "nail biting" when the contact is at the mouth (or just under the nose)
+NAIL_BITING_NEEDS_MOUTH = False  # only allow "nail biting" when the contact is at the mouth (or just under the nose)
 
 # ---- learning from corrections (tracker.py) ----
 FEEDBACK_FRAMES = 90          # how much recent footage a correction key saves (about 3 sec)
